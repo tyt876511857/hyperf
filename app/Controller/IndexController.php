@@ -11,13 +11,17 @@ declare(strict_types=1);
  */
 namespace App\Controller;
 
+use App\Amqp\Producer\DemoProducer;
+use App\Helper\Log;
 use App\Middleware\Auth\FooMiddleware;
 use App\Exception\BusinessException;
 use App\Model\Role;
+use Hyperf\Amqp\Producer;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\Utils\ApplicationContext;
 
 /**
  * @Controller()
@@ -101,6 +105,14 @@ class IndexController extends AbstractController
         if (!$object->save()) {
             throw new BusinessException(100);
         }
+        $pushArray = [
+            'id' => $roleId,
+            'data' => Role::where('role_id', $roleId)->first()->toArray()
+        ];
+        Log::get('log')->info('保存用户信息消息推送', $pushArray);
+        $message = new DemoProducer($pushArray);
+        $producer = ApplicationContext::getContainer()->get(Producer::class);
+        $producer->produce($message);
 
         return [
             'status' => 1,
